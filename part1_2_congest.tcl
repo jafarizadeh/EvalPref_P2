@@ -1,19 +1,12 @@
-# -------------------------------------------------
-# EvalPerf - Part 1.2 (CONGESTION case)
-# 8 nodes, 6 TCP/FTP flows, heterogeneous RTT
-# Core link is the bottleneck and stays congested for a long time
-# -------------------------------------------------
 
 set ns [new Simulator]
 
-# Trace files
 set tr [open p12_congest.tr w]
 $ns trace-all $tr
 
 set nf [open p12_congest.nam w]
 $ns namtrace-all $nf
 
-# Simulation parameters (easy to change)
 set SIMTIME 200.0
 set ACCESS_BW "10Mb"
 set CORE_BW   "2Mb"
@@ -29,7 +22,6 @@ proc finish {} {
     exit 0
 }
 
-# Nodes (creation order matters for node IDs in trace)
 set r0 [$ns node]
 set r1 [$ns node]
 
@@ -41,7 +33,6 @@ set d0 [$ns node]
 set d1 [$ns node]
 set d2 [$ns node]
 
-# Access links (fast compared to core), different delays -> different RTT
 $ns duplex-link $s0 $r0 $ACCESS_BW 5ms  DropTail
 $ns duplex-link $s1 $r0 $ACCESS_BW 25ms DropTail
 $ns duplex-link $s2 $r0 $ACCESS_BW 60ms DropTail
@@ -50,12 +41,10 @@ $ns duplex-link $d0 $r1 $ACCESS_BW 5ms  DropTail
 $ns duplex-link $d1 $r1 $ACCESS_BW 25ms DropTail
 $ns duplex-link $d2 $r1 $ACCESS_BW 60ms DropTail
 
-# Core bottleneck link
 $ns duplex-link $r0 $r1 $CORE_BW $CORE_DELAY DropTail
 $ns queue-limit $r0 $r1 $QLIMIT
 $ns queue-limit $r1 $r0 $QLIMIT
 
-# Small NAM layout hints
 $ns duplex-link-op $r0 $r1 orient right
 $ns duplex-link-op $s0 $r0 orient right-down
 $ns duplex-link-op $s1 $r0 orient right
@@ -64,12 +53,10 @@ $ns duplex-link-op $d0 $r1 orient left-down
 $ns duplex-link-op $d1 $r1 orient left
 $ns duplex-link-op $d2 $r1 orient left-up
 
-# Helper: one FTP over TCP flow
 proc make_ftp_flow {ns src dst fid startTime} {
     set tcp [new Agent/TCP]
     $tcp set fid_ $fid
 
-    # Avoid being limited by receiver window
     $tcp set window_ 5000
     $tcp set maxcwnd_ 5000
 
@@ -87,7 +74,6 @@ proc make_ftp_flow {ns src dst fid startTime} {
     return $ftp
 }
 
-# 6 flows (two per pair)
 set f0 [make_ftp_flow $ns $s0 $d0 1 0.5]
 set f1 [make_ftp_flow $ns $s0 $d0 2 0.7]
 

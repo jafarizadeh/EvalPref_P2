@@ -1,25 +1,29 @@
-# Usage:
-#   gawk -f throughput.awk -v t0=20 -v t1=180 p12_congest.tr
-#   gawk -f throughput.awk -v t0=20 -v t1=180 p12_nocongest.tr
+
 
 BEGIN {
-  if (t0 == "") t0 = 20
-  if (t1 == "") t1 = 180
+  if (t0 == "") t0 = 10
+  if (t1 == "") t1 = 50
+  if (maxfid == "") maxfid = 6
+
+  if (recv == "") recv = "5,6,7"
+
+  n = split(recv, arr, ",")
+  for (i = 1; i <= n; i++) {
+    recvNode[arr[i]] = 1
+  }
 }
 
-# NS-2 trace (old format):
-# event time from to type size flags fid src dst seq id
 {
-  ev   = $1
-  time = $2
-  to   = $4
-  ptype= $5
-  size = $6
-  fid  = $8
+  ev    = $1
+  time  = $2
+  to    = $4
+  ptype = $5
+  size  = $6
+  fid   = $8
 
-  # Count only received TCP data packets at receivers (nodes 5,6,7)
-  if (ev == "r" && ptype == "tcp" && time >= t0 && time <= t1) {
-    if (to == 5 || to == 6 || to == 7) {
+
+  if (ev == "r" && ptype == "tcp" && size > 40 && time >= t0 && time <= t1) {
+    if (to in recvNode) {
       bytes[fid] += size
     }
   }
@@ -27,9 +31,18 @@ BEGIN {
 
 END {
   dur = (t1 - t0)
-  print "Interval:", t0, "to", t1, "seconds (dur=", dur, ")"
-  for (f = 1; f <= 6; f++) {
-    mbps = (bytes[f] * 8.0) / (dur * 1000000.0)
+  if (dur <= 0) {
+    print "Error: duration <= 0. Check t0 and t1."
+    exit 1
+  }
+
+  print "Interval:", t0, "to", t1, "seconds (dur =", dur, ")"
+  print "Receivers:", recv
+  print "--------------------------------------"
+
+  for (f = 1; f <= maxfid; f++) {
+    b = bytes[f] + 0
+    mbps = (b * 8.0) / (dur * 1000000.0)
     printf("Flow fid=%d : %.3f Mbps\n", f, mbps)
   }
 }
