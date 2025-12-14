@@ -14,6 +14,13 @@ proc finish {} {
     exit 0
 }
 
+proc record_queue {ns q qf dt} {
+    set t [$ns now]
+    set qlen [$q set pkts_]
+    puts $qf "$t $qlen"
+    $ns at [expr $t + $dt] "record_queue $ns $q $qf $dt"
+}
+
 set SIMTIME 200.0
 
 set ACCESS_BW "10Mb"
@@ -46,7 +53,9 @@ $ns duplex-link $r0 $r1 $CORE_BW $CORE_DLY DropTail
 $ns queue-limit $r0 $r1 $QLIMIT
 $ns queue-limit $r1 $r0 $QLIMIT
 
-set qmon [$ns monitor-queue $r0 $r1 $qf 0.1]
+set link [$ns link $r0 $r1]
+set q [$link queue]
+$ns at 0.0 "record_queue $ns $q $qf 0.1"
 
 proc make_flow {ns src dst fid tcpClass sinkClass startTime} {
     set tcp [new $tcpClass]
@@ -63,7 +72,6 @@ proc make_flow {ns src dst fid tcpClass sinkClass startTime} {
 
     set ftp [new Application/FTP]
     $ftp attach-agent $tcp
-
     $ns at $startTime "$ftp start"
     return $tcp
 }
