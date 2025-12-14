@@ -1,15 +1,25 @@
 # -------------------------------------------------
 # EvalPerf - Part 1.2 (NO CONGESTION on core link)
-# Same topology and flows, but core link is very large capacity
+# Same topology and flows, but core link is NOT a bottleneck
+# Bandwidths are scaled to keep simulation fast with trace-all
 # -------------------------------------------------
 
 set ns [new Simulator]
 
+# Trace files
 set tr [open p12_nocongest.tr w]
 $ns trace-all $tr
 
+# NAM is optional (comment these 2 lines if you want faster runtime)
 set nf [open p12_nocongest.nam w]
 $ns namtrace-all $nf
+
+# Simulation parameters
+set SIMTIME 60.0
+set ACCESS_BW "10Mb"
+set CORE_BW   "100Mb"
+set CORE_DELAY "10ms"
+set QLIMIT 200
 
 proc finish {} {
     global ns tr nf
@@ -20,6 +30,7 @@ proc finish {} {
     exit 0
 }
 
+# Nodes (same creation order as congestion script)
 set r0 [$ns node]
 set r1 [$ns node]
 
@@ -31,27 +42,30 @@ set d0 [$ns node]
 set d1 [$ns node]
 set d2 [$ns node]
 
-$ns duplex-link $s0 $r0 100Mb 5ms  DropTail
-$ns duplex-link $s1 $r0 100Mb 25ms DropTail
-$ns duplex-link $s2 $r0 100Mb 60ms DropTail
+# Access links (same heterogeneous delays -> different RTT)
+$ns duplex-link $s0 $r0 $ACCESS_BW 5ms  DropTail
+$ns duplex-link $s1 $r0 $ACCESS_BW 25ms DropTail
+$ns duplex-link $s2 $r0 $ACCESS_BW 60ms DropTail
 
-$ns duplex-link $d0 $r1 100Mb 5ms  DropTail
-$ns duplex-link $d1 $r1 100Mb 25ms DropTail
-$ns duplex-link $d2 $r1 100Mb 60ms DropTail
+$ns duplex-link $d0 $r1 $ACCESS_BW 5ms  DropTail
+$ns duplex-link $d1 $r1 $ACCESS_BW 25ms DropTail
+$ns duplex-link $d2 $r1 $ACCESS_BW 60ms DropTail
 
-# Core link is NOT a bottleneck here
-$ns duplex-link $r0 $r1 1000Mb 10ms DropTail
-$ns queue-limit $r0 $r1 500
-$ns queue-limit $r1 $r0 500
+# Core link is large enough so it is not the bottleneck
+$ns duplex-link $r0 $r1 $CORE_BW $CORE_DELAY DropTail
+$ns queue-limit $r0 $r1 $QLIMIT
+$ns queue-limit $r1 $r0 $QLIMIT
 
 proc make_ftp_flow {ns src dst fid startTime} {
     set tcp [new Agent/TCP]
     $tcp set fid_ $fid
-    $tcp set window_ 100000
-    $tcp set maxcwnd_ 100000
+
+    # Not receiver-window limited, but not huge (keeps runtime reasonable)
+    $tcp set window_ 5000
+    $tcp set maxcwnd_ 5000
 
     set sink [new Agent/TCPSink]
-    $sink set maxwnd_ 100000
+    $sink set maxwnd_ 5000
 
     $ns attach-agent $src $tcp
     $ns attach-agent $dst $sink
@@ -63,12 +77,15 @@ proc make_ftp_flow {ns src dst fid startTime} {
     return $ftp
 }
 
+# 6 flows
 set f0 [make_ftp_flow $ns $s0 $d0 1 0.5]
 set f1 [make_ftp_flow $ns $s0 $d0 2 0.7]
+
 set f2 [make_ftp_flow $ns $s1 $d1 3 0.9]
 set f3 [make_ftp_flow $ns $s1 $d1 4 1.1]
+
 set f4 [make_ftp_flow $ns $s2 $d2 5 1.3]
 set f5 [make_ftp_flow $ns $s2 $d2 6 1.5]
 
-$ns at 200.0 "finish"
+$ns at $SIMTIME "finish"
 $ns run
